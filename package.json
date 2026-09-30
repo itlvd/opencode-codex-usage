@@ -1,6 +1,6 @@
 {
   "name": "opencode2-codex-usage",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "All saved OpenAI OAuth accounts: Codex subscription quota for OpenCode V2",
   "scripts": {
     "build": "npm run typecheck",
