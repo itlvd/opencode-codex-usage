@@ -1,9 +1,10 @@
 {
   "name": "opencode2-codex-usage",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "All saved OpenAI OAuth accounts: Codex subscription quota for OpenCode V2",
   "scripts": {
-    "build": "npm run typecheck",
+    "build": "npm run typecheck && npm run build:tui",
+    "build:tui": "node scripts/build-tui.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "test:package": "node scripts/check-package.mjs",
@@ -15,21 +16,24 @@
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@babel/core": "7.28.0",
+    "@babel/preset-typescript": "7.27.1",
     "@opencode/theme": "2.0.19",
     "@opentui/core": "0.5.12",
     "@opentui/solid": "0.5.12",
     "@types/node": "22.20.4",
+    "babel-preset-solid": "1.9.12",
     "solid-js": "1.9.12",
     "typescript": "5.8.2"
   },
-  "files": ["index.ts", "tui.tsx", "core.ts", "rpc.ts", "README.md"],
+  "files": ["index.ts", "tui.js", "core.ts", "rpc.ts", "README.md"],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "exports": {
     ".": "./index.ts",
-    "./tui": "./tui.tsx"
+    "./tui": "./tui.js"
   },
   "dependencies": {
     "@opencode/plugin": "2.0.19"

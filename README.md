@@ -11,26 +11,28 @@ Sau khi package được publish, thêm vào `~/.config/opencode/opencode.jsonc`
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["opencode2-codex-usage@0.1.5"]
+  "plugins": ["opencode2-codex-usage@0.1.7"]
 }
 ```
 
-OpenCode tự cài package npm và load server + export `./tui`; không cần `npm install -g`. Nếu đang dùng bản local, đóng OpenCode và di chuyển thư mục `plugins/codex-usage` ra ngoài thư mục discovery `plugins/` để tránh load trùng. Không cài cùng plugin ở cả global và project.
+OpenCode tự cài package npm và load server entrypoint (`index.ts`) cùng export `./tui` (`tui.js` đã biên dịch sẵn); không cần `npm install -g`. Nếu đang dùng bản local, đóng OpenCode và di chuyển thư mục `plugins/codex-usage` ra ngoài thư mục discovery `plugins/` để tránh load trùng. Không cài cùng plugin ở cả global và project.
 
 Restart service bằng `opencode service restart`, mở lại TUI rồi chạy `/codex-usage`.
 
 `@opencode/plugin@2.0.19` là runtime dependency. OpenTUI và Solid là peer dependencies, đồng thời nằm trong devDependencies phục vụ kiểm tra. Giữ Solid **1.9.12** để khớp `@opentui/solid@0.5.12`.
+
+`tui.tsx` được biên dịch sẵn thành `tui.js` bằng Babel (`@babel/preset-typescript` + `babel-preset-solid` với `moduleName: "@opentui/solid"`, `generate: "universal"`). Loader TUI của OpenCode chỉ áp dụng OpenTUI Solid transform cho file **ngoài** `node_modules`, nên nếu phát hành JSX thô, Bun sẽ rơi về transform kiểu React và báo `Cannot find package 'react'` khi load plugin.
 
 ## Phát hành tự động trên GitHub
 
 Workflow có sẵn tại `.github/workflows/publish.yml`. Push **tag** `v*.*.*` (không phải branch) sẽ:
 
 1. Kiểm tra tag là `vX.Y.Z` và khớp version trong `package.json`.
-2. Cài bằng lockfile, chạy tests, build/typecheck và đóng gói `.tgz`.
-3. Cài `.tgz` vào thư mục tạm, smoke-test server entrypoint (test loader transpile TS vì Node không strip TS trong `node_modules`) và kiểm tra source/exports.
+2. Cài bằng lockfile, chạy tests, typecheck và biên dịch `tui.tsx` thành `tui.js` (`npm run build`), rồi đóng gói `.tgz`.
+3. Cài `.tgz` vào thư mục tạm, smoke-test **cả** server entrypoint và TUI entrypoint đã biên dịch (test loader transpile TS vì Node không strip TS trong `node_modules`), đồng thời kiểm tra source/exports và `tui.js` không còn tham chiếu React.
 4. Lưu `.tgz` trong Actions artifacts và publish chính gói đã kiểm tra lên npm.
 
-OpenCode load TS/TSX trực tiếp, nên `npm run build` là typecheck, không biên dịch JSX hay tạo `dist/`. Workflow chạy Node 26.4.0 và npm 11.5.1 (hỗ trợ OIDC). Repository metadata được lấy từ repository GitHub đang chạy, không cần sửa placeholder URL. Artifact không phải GitHub Release.
+`npm run build` gồm `typecheck` và `build:tui`; `prepack` chạy build nên `tui.js` luôn được tạo trước khi `npm pack`. Workflow chạy Node 26.4.0 và npm 11.5.1 (hỗ trợ OIDC). Repository metadata được lấy từ repository GitHub đang chạy, không cần sửa placeholder URL. Artifact không phải GitHub Release.
 
 ### Thiết lập một lần
 
@@ -45,7 +47,7 @@ npm login
 npm publish --access public
 ```
 
-   Lệnh publish chạy build/typecheck và tests trước khi phát hành. Làm theo yêu cầu OTP/2FA của npm. Không push tag `v0.1.5` sau đó vì npm không cho publish lại version đã tồn tại.
+   Lệnh publish chạy build/typecheck và tests trước khi phát hành. Làm theo yêu cầu OTP/2FA của npm. Không push tag `v0.1.6` sau đó vì npm không cho publish lại version đã tồn tại.
 4. Trong repo GitHub → **Settings → Environments → New environment**, tạo environment tên chính xác **npm**. Không cần thêm secrets. Nếu cấu hình deployment rules, cho phép tag `v*.*.*`. Không thêm required reviewers nếu muốn publish hoàn toàn tự động.
 5. Sau khi publish đầu thành công, vào npm → package **opencode2-codex-usage → Settings → Trusted Publisher**, chọn **GitHub Actions**:
    - Organization/user: GitHub owner của repo.
@@ -59,15 +61,15 @@ npm publish --access public
 
 ### Các lần cập nhật sau
 
-Tăng version và lockfile trước khi commit. Ví dụ từ 0.1.5 lên 0.1.6:
+Tăng version và lockfile trước khi commit. Ví dụ từ 0.1.6 lên 0.1.7:
 
 ```sh
 npm version patch --no-git-tag-version
 git add package.json package-lock.json
-git commit -m "chore: release 0.1.6"
+git commit -m "chore: release 0.1.7"
 git push origin HEAD
-git tag v0.1.6
-git push origin v0.1.6
+git tag v0.1.7
+git push origin v0.1.7
 ```
 
 Commit cả thay đổi source liên quan trước khi tag. Người dùng pin version cần cập nhật config. Không tái sử dụng version đã publish. Theo dõi tab **Actions → Publish npm package**; `.tgz` nằm ở mục **Artifacts**. Nếu lỗi OIDC, kiểm tra owner/repo, filename `publish.yml`, environment `npm`, quyền `npm publish` và `id-token: write`.
@@ -114,11 +116,11 @@ Xóa entry `opencode2-codex-usage` khỏi mảng `plugins`, rồi restart OpenCo
 
 ## Kiểm tra của bản phát hành
 
-- Workflow kiểm tra package đã đóng gói qua clean install và server import smoke test, không chỉ workspace source.
+- Workflow kiểm tra package đã đóng gói qua clean install, import smoke test **server và TUI entrypoint**, và xác nhận `tui.js` không còn React, không chỉ workspace source.
 - TypeScript strict typecheck với `@opencode/plugin@2.0.19`.
 - 14 automated tests: parse quota, reset, account identity, HTTP/backoff, fixed destination, mọi account, API key, lỗi độc lập, stale data, account deletion, JSON-safe RPC, layout và không lộ token qua snapshot.
-- Test server setup dùng mock integration API và mock HTTP. **Chưa chạy end-to-end trong TUI thật hoặc với subscription của bạn.** Typecheck thành công không thay thế kiểm chứng runtime.
-- OpenTUI yêu cầu Bun >=1.3 / Node >=26.4. CI dùng Node 26.4.0; smoke test không chạy TUI thật.
+- Test server setup dùng mock integration API và mock HTTP. Packaged test import cả TUI entrypoint nên bắt được lỗi transform React, nhưng **chưa render end-to-end trong TUI thật hoặc với subscription của bạn.** Typecheck thành công không thay thế kiểm chứng runtime.
+- OpenTUI yêu cầu Bun >=1.3 / Node >=26.4. CI dùng Node 26.4.0; smoke test chỉ import entrypoint, không render TUI thật.
 
 Để kiểm tra lại tại thư mục plugin đã cài:
 
@@ -127,7 +129,7 @@ npm ci --ignore-scripts
 npm run typecheck
 npm test
 npm pack
-npm run test:package -- ./opencode2-codex-usage-0.1.5.tgz
+npm run test:package -- ./opencode2-codex-usage-0.1.7.tgz
 ```
 
 ## Nguồn đối chiếu (2026-09-29)
